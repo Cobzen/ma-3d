@@ -1,0 +1,30 @@
+name: Check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Check JavaScript syntax
+        run: |
+          awk '/<script type="module">/{found=1;next} found&&/<\/script>/{exit} found{print}' index.html | node --check --input-type=module
+      - name: Check duplicate DOM IDs
+        run: |
+          node <<'NODE'
+          const html = require('fs').readFileSync('index.html', 'utf8');
+          const ids = [...html.matchAll(/\bid\s*=\s*["']([^"']+)["']/g)].map(match => match[1]);
+          const duplicates = [...new Set(ids.filter((id, index) => ids.indexOf(id) !== index))];
+          if (duplicates.length) {
+            console.error(`Duplicate DOM IDs: ${duplicates.join(', ')}`);
+            process.exit(1);
+          }
+          NODE
+      - name: Check diff whitespace
+        run: git diff --check
