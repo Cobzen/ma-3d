@@ -2200,8 +2200,41 @@ function geometryFromPositions(arr){
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(arr,3));g.computeVertexNormals();g.computeBoundingBox();g.computeBoundingSphere();return g;
 }
 function serializeGeometry(g){return Array.from(g.attributes.position.array);}
+function invalidateMassGeometryDerivedState(m){
+  if(!m)return;
+  // Every modelling cache is derived from the real mesh. Never retain it across
+  // a geometry change, whether the geometry was replaced or edited in place.
+  if(m.mesh.geometry.userData?.manifoldMesh)delete m.mesh.geometry.userData.manifoldMesh;
+  m._facePatches=null;
+  m._triToPatch=null;
+  m._patchGeometry=null;
+  m._patchTris=null;
+  m._patchWeldTol=null;
+  m._modifyTopology=null;
+  m._modifyTopologyGeometry=null;
+}
+function commitMassGeometry(m,g,{smooth=true}={}){
+  if(!m||!g)return false;
+  const previous=m.mesh.geometry;
+  if(smooth)g=smoothGeometryForType(g,m.type);
+  g.computeVertexNormals();
+  g.computeBoundingBox();
+  g.computeBoundingSphere();
+  if(previous!==g){
+    m.mesh.geometry=g;
+    previous?.dispose();
+  }
+  m.edges.geometry.dispose();
+  m.edges.geometry=new THREE.EdgesGeometry(g,20);
+  invalidateMassGeometryDerivedState(m);
+  updateMassVisual(m);
+  return true;
+}
 function setMassGeometry(m,g,baked=true){
-  if(!g)return false;g=smoothGeometryForType(g,m.type);m.mesh.geometry.dispose();m.edges.geometry.dispose();m.mesh.geometry=g;m.edges.geometry=new THREE.EdgesGeometry(g,20);m.baked=!!baked;m.cuts=[];m._facePatches=null;m._triToPatch=null;m._patchGeometry=null;m._modifyTopology=null;m._modifyTopologyGeometry=null;updateMassVisual(m);return true;
+  if(!commitMassGeometry(m,g))return false;
+  m.baked=!!baked;
+  m.cuts=[];
+  return true;
 }
 function normalizeCutAnchor(a){
   if(!a)return null;
@@ -2265,8 +2298,10 @@ function makeMass(data,addHistory=false){
 function disposeMass(m){if(!m)return;m.mesh.geometry.dispose();m.mesh.material.dispose();m.edges.geometry.dispose();m.edges.material.dispose();scene.remove(m.group);}
 function rebuildMass(m,{profile=m.profile,depth=m.depth,cuts=m.cuts}={}){
   if(m.baked)return false;
-  const clean=cleanProfile(profile),normalizedCuts=(cuts||[]).map(c=>c.origin?.isVector3?c:normalizeCut(c));if(clean.length<3||Math.abs(signedArea(clean))<1e-6||!simplePolygon(clean))return false;let g=buildMassGeometry(clean,depth,normalizedCuts);if(!g)return false;g=smoothGeometryForType(g,m.type);
-  m.mesh.geometry.dispose();m.edges.geometry.dispose();m.mesh.geometry=g;m.edges.geometry=new THREE.EdgesGeometry(g,20);m.profile=clean.map(p=>p.clone());m.depth=depth;m.cuts=normalizedCuts;m._facePatches=null;m._triToPatch=null;m._patchGeometry=null;m._modifyTopology=null;m._modifyTopologyGeometry=null;updateMassVisual(m);return true;
+  const clean=cleanProfile(profile),normalizedCuts=(cuts||[]).map(c=>c.origin?.isVector3?c:normalizeCut(c));if(clean.length<3||Math.abs(signedArea(clean))<1e-6||!simplePolygon(clean))return false;const g=buildMassGeometry(clean,depth,normalizedCuts);if(!g)return false;
+  if(!commitMassGeometry(m,g))return false;
+  m.profile=clean.map(p=>p.clone());m.depth=depth;m.cuts=normalizedCuts;
+  return true;
 }
 function serializeMass(m){return{id:m.id,name:m.name,type:m.type,groupId:m.groupId??null,profile:m.profile.map(p=>({x:p.x,y:p.y})),depth:m.depth,cuts:m.baked?[]:(m.cuts||[]).map(serializeCut),bakedPositions:m.baked?serializeGeometry(m.mesh.geometry):null,position:m.group.position.toArray(),quaternion:m.group.quaternion.toArray(),scale:m.group.scale.toArray()};}
 function snapshot(){return masses.map(serializeMass);}
@@ -3460,12 +3495,6 @@ function endMove(){const st=interaction;if(!st||st.kind!=='move')return;if(rafMo
 // --- Modify: move real geometry corners / edges ---------------------------------
 let pendingModify=null,rafModify=0;
 
-function invalidateModifyTopology(m){
-  if(!m)return;
-  m._modifyTopology=null;
-  m._modifyTopologyGeometry=null;
-}
-
 function modifyTopology(m){
   if(!m?.mesh?.geometry)return null;
   const g=m.mesh.geometry;
@@ -3589,18 +3618,9 @@ function applyModifyGeometry(st,worldDelta){
   }
   pos.needsUpdate=true;
 
-  // Any cached manifold representation belongs to the old vertex positions.
-  if(g.userData?.manifoldMesh)delete g.userData.manifoldMesh;
-  g.computeVertexNormals();
-  g.computeBoundingBox();
-  g.computeBoundingSphere();
-
-  m.edges.geometry.dispose();
-  m.edges.geometry=new THREE.EdgesGeometry(g,20);
+  commitMassGeometry(m,g,{smooth:false});
   m.baked=true;
   m.cuts=[];
-  m._facePatches=null;m._triToPatch=null;m._patchGeometry=null;
-  invalidateModifyTopology(m);
   st.changed=st.changed||worldDelta.lengthSq()>1e-10;
 }
 
@@ -3672,7 +3692,6 @@ function endModify(){
     // creased/smooth normals and every derived outline is rebuilt from geometry.
     const finalPositions=serializeGeometry(m.mesh.geometry);
     setMassGeometry(m,geometryFromPositions(finalPositions),true);
-    invalidateModifyTopology(m);
   }
   interaction=null;clearSnapVisual();axisLock=null;
   if(st.changed){recordHistory();showToast(st.handle.kind==='vertex'?'CORNER MODIFIED':'EDGE MODIFIED');}
