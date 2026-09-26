@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="ma-build" content="6.11">
+<meta name="ma-build" content="6.12">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -10,10 +10,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#151515">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>MA — iPad · Apple Pencil · v6.11</title>
+<title>MA — iPad · Apple Pencil · v6.12</title>
 <script>
 (() => {
-  const CURRENT_BUILD = '6.11';
+  const CURRENT_BUILD = '6.12';
   const CHECK_INTERVAL = 30000;
   let lastCheck = 0;
   let checking = false;
@@ -1076,7 +1076,7 @@ html.ma-ipad #shortcutPanel{top:70px!important}
       <label class="toolbarSettingRow"><span>Scenes</span><input type="checkbox" data-toolbar-section="sceneBar" checked></label>
     </div>
 
-    <div id="sideMenuBuild">BUILD <span id="buildBadge" title="MA build v6.11">6.11</span></div>
+    <div id="sideMenuBuild">BUILD <span id="buildBadge" title="MA build v6.12">6.12</span></div>
   </div>
   <div id="selected"></div>
   <div id="panel">
@@ -1597,12 +1597,14 @@ function buildHighResExport(targetLongEdge=4096){
     activePlaneGrid:activePlaneGrid.visible,
     hoverPlaneGrid:hoverPlaneGrid.visible,
     viewPlaneGhost:viewPlaneGhost.visible,
-    viewPlaneBorder:viewPlaneBorder.visible
+    viewPlaneBorder:viewPlaneBorder.visible,
+    dragFacePreview:dragFacePreview?.visible
   };
   activePlaneGrid.visible=false;
   hoverPlaneGrid.visible=false;
   viewPlaneGhost.visible=false;
   viewPlaneBorder.visible=false;
+  if(dragFacePreview)dragFacePreview.visible=false;
 
   transparentExportActive=true;
   renderViewport();
@@ -1612,6 +1614,7 @@ function buildHighResExport(targetLongEdge=4096){
   hoverPlaneGrid.visible=helperVisibility.hoverPlaneGrid;
   viewPlaneGhost.visible=helperVisibility.viewPlaneGhost;
   viewPlaneBorder.visible=helperVisibility.viewPlaneBorder;
+  if(dragFacePreview)dragFacePreview.visible=helperVisibility.dragFacePreview;
 
   let exportCanvas=srcCanvas;
   let exportName='MA-mass-blockout-4K.png';
@@ -2764,14 +2767,14 @@ function patchLoops(m,patch){
 }
 function patchShapeData(m,patch){
   const loops=patchLoops(m,patch),u=patch.u,v=patch.v,o=patch.origin;const L2=loops.map(L=>L.map(p=>{const d=p.clone().sub(o);return new THREE.Vector2(d.dot(u),d.dot(v));}));if(!L2.length)return null;
-  let oi=0,best=0;for(let i=0;i<L2.length;i++){const a=Math.abs(signedArea(L2[i]));if(a>best){best=a;oi=i;}}const outer=L2[oi].map(p=>p.clone()),holes=L2.filter((_,i)=>i!==oi).map(L=>L.map(p=>p.clone()));if(!THREE.ShapeUtils.isClockWise(outer))outer.reverse();for(const h of holes)if(THREE.ShapeUtils.isClockWise(h))h.reverse();return{outer,holes,u,v,origin:o};
+  let oi=0,best=0;for(let i=0;i<L2.length;i++){const a=Math.abs(signedArea(L2[i]));if(a>best){best=a;oi=i;}}const outer=L2[oi].map(p=>p.clone()),holes=L2.filter((_,i)=>i!==oi).map(L=>L.map(p=>p.clone()));if(!THREE.ShapeUtils.isClockWise(outer))outer.reverse();for(const h of holes)if(THREE.ShapeUtils.isClockWise(h))h.reverse();return{outer,holes,u:u.clone(),v:v.clone(),normal:patch.normal.clone(),origin:o.clone()};
 }
-function patchPrismGeometry(m,patch,delta){
-  const d=patchShapeData(m,patch);if(!d)return null;const shape=new THREE.Shape(d.outer);for(const h of d.holes){const path=new THREE.Path();path.moveTo(h[0].x,h[0].y);for(let i=1;i<h.length;i++)path.lineTo(h[i].x,h[i].y);path.closePath();shape.holes.push(path);}const eps=Math.max(1e-4,Math.abs(delta)*1e-4),z0=Math.min(0,delta)-eps,z1=Math.max(0,delta)+eps;
-  const g=new THREE.ExtrudeGeometry(shape,{depth:z1-z0,bevelEnabled:false,steps:1,curveSegments:1});g.applyMatrix4(new THREE.Matrix4().compose(d.origin.clone().addScaledVector(patch.normal,z0),basisQuaternion(d.u,d.v,patch.normal),new THREE.Vector3(1,1,1)));g.computeVertexNormals();g.computeBoundingBox();g.computeBoundingSphere();return g;
+function patchPrismGeometry(m,patch,delta,shapeData=null){
+  const d=shapeData||patchShapeData(m,patch);if(!d)return null;const shape=new THREE.Shape(d.outer);for(const h of d.holes){const path=new THREE.Path();path.moveTo(h[0].x,h[0].y);for(let i=1;i<h.length;i++)path.lineTo(h[i].x,h[i].y);path.closePath();shape.holes.push(path);}const eps=Math.max(1e-4,Math.abs(delta)*1e-4),z0=Math.min(0,delta)-eps,z1=Math.max(0,delta)+eps;
+  const g=new THREE.ExtrudeGeometry(shape,{depth:z1-z0,bevelEnabled:false,steps:1,curveSegments:1});g.applyMatrix4(new THREE.Matrix4().compose(d.origin.clone().addScaledVector(d.normal,z0),basisQuaternion(d.u,d.v,d.normal),new THREE.Vector3(1,1,1)));g.computeVertexNormals();g.computeBoundingBox();g.computeBoundingSphere();return g;
 }
 function commitMeshFacePushPull(st,delta){
-  if(Math.abs(delta)<1e-4)return true;const base=geometryFromPositions(st.startBakedPositions),prism=patchPrismGeometry(st.m,st.patch,delta);if(!prism){base.dispose();return false;}try{return commitMassBoolean(st.m,base,prism,delta>0?'union':'subtract');}finally{base.dispose();prism.dispose();}
+  if(Math.abs(delta)<1e-4)return true;const base=geometryFromPositions(st.startGeometryPositions),prism=patchPrismGeometry(st.m,st.patch,delta,st.shapeData);if(!prism){base.dispose();return false;}try{return commitMassBoolean(st.m,base,prism,delta>0?'union':'subtract');}finally{base.dispose();prism.dispose();}
 }
 
 function workplaneFromHit(hit){
@@ -3202,7 +3205,7 @@ function endDraw(){
 // --- Push/Pull -----------------------------------------------------------------
 let pushHoverMesh=null,dragFacePreview=null;
 function clearPushHover(){if(pushHoverMesh){scene.remove(pushHoverMesh);pushHoverMesh.geometry.dispose();pushHoverMesh.material.dispose();pushHoverMesh=null;}}
-function clearDragFacePreview(){if(dragFacePreview){scene.remove(dragFacePreview);dragFacePreview.geometry.dispose();dragFacePreview.material.dispose();dragFacePreview=null;}}
+function clearDragFacePreview(){if(!dragFacePreview)return;dragFacePreview.traverse(o=>{o.geometry?.dispose();if(o.material){for(const m of (Array.isArray(o.material)?o.material:[o.material]))m.dispose();}});scene.remove(dragFacePreview);dragFacePreview=null;}
 function meshFaceHoverMesh(m,info){const g=patchLocalGeometry(m,info.patch),o=new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:accent,transparent:true,opacity:.28,side:THREE.DoubleSide,depthTest:false,depthWrite:false}));o.position.copy(m.group.position);o.quaternion.copy(m.group.quaternion);o.scale.copy(m.group.scale);return o;}
 function updatePushHover(x,y){clearPushHover();const hit=raycastMasses(x,y),m=massFromHit(hit);if(!m)return;const info=meshFaceForHit(hit,m);if(!info)return;
   pushHoverMesh=meshFaceHoverMesh(m,info);
@@ -3221,6 +3224,18 @@ function pushPullRayAxisParameter(x,y,anchor,axisWorld){
   if(s<0)return null;
   return (e-b*d)/den;
 }
+function createPushPullPreview(st){
+  const group=new THREE.Group(),face=new THREE.Mesh(patchLocalGeometry(st.m,st.patch),new THREE.MeshBasicMaterial({color:accent,transparent:true,opacity:.22,side:THREE.DoubleSide,depthTest:false,depthWrite:false})),edgePairs=[];
+  for(const loop of st.previewLoops)for(let i=0;i<loop.length;i++)edgePairs.push([loop[i],loop[(i+1)%loop.length]]);
+  const side=new THREE.Mesh(new THREE.BufferGeometry(),new THREE.MeshBasicMaterial({color:accent,transparent:true,opacity:.14,side:THREE.DoubleSide,depthTest:false,depthWrite:false}));
+  side.geometry.setAttribute('position',new THREE.BufferAttribute(new Float32Array(edgePairs.length*18),3));
+  const preview={face,side,edgePairs};face.renderOrder=1651;side.renderOrder=1650;group.position.copy(st.m.group.position);group.quaternion.copy(st.m.group.quaternion);group.scale.copy(st.m.group.scale);group.add(face,side);group.userData=preview;st.preview=preview;scene.add(group);dragFacePreview=group;updatePushPullPreview(st,0);
+}
+function updatePushPullPreview(st,delta){
+  if(!dragFacePreview||dragFacePreview.userData!==st.preview)return;const {face,side,edgePairs}=st.preview,shift=st.axisLocal.clone().multiplyScalar(delta),a=side.geometry.attributes.position.array;face.position.copy(shift);let o=0;
+  for(const [p,q] of edgePairs){const p1=p.clone().add(shift),q1=q.clone().add(shift);for(const v of [p,q,q1,p,q1,p1]){a[o++]=v.x;a[o++]=v.y;a[o++]=v.z;}}
+  side.geometry.attributes.position.needsUpdate=true;side.geometry.computeBoundingSphere();
+}
 function beginPushPull(e){const hit=raycastMasses(e.clientX,e.clientY),m=massFromHit(hit);if(!m)return;const info=meshFaceForHit(hit,m);if(!info)return;clearPushHover();clearDragFacePreview();selectMass(m);
   const axisLocal=info.normalLocal.clone().normalize(),axisWorld=localDirectionToWorld(m,axisLocal),anchor=hit.point.clone(),s0=worldToClient(anchor),s1=worldToClient(anchor.clone().add(axisWorld));let sd=s1.clone().sub(s0),px=sd.length();if(px<1e-4){sd.set(0,-1);px=1;}else sd.multiplyScalar(1/px);
   camera.updateMatrixWorld(true);
@@ -3229,8 +3244,9 @@ function beginPushPull(e){const hit=raycastMasses(e.clientX,e.clientY),m=massFro
   const axisDragMode=(axisViewAlignment<.965&&px>=2.5)?'axis3d':'screen';
   const axisStartParam=axisDragMode==='axis3d'?pushPullRayAxisParameter(e.clientX,e.clientY,anchor,axisWorld):null;
   const common={kind:'pushpull',pointerId:e.pointerId,m,info,axisLocal,axisWorld,anchor,startClient:vec2(e.clientX,e.clientY),screenDir:sd,pxPerWorld:px,axisDragMode,axisStartParam:Number.isFinite(axisStartParam)?axisStartParam:0};
-  patchShapeData(m,info.patch);
-  interaction={...common,patch:info.patch,wasBaked:m.baked,startCuts:(m.cuts||[]).map(cloneCut),startBakedPositions:serializeGeometry(m.mesh.geometry),deltaLocal:0,lastLiveDelta:null,lastLiveTime:0,liveFailed:false,before:snapshot()};
+  const previewLoops=patchLoops(m,info.patch).map(loop=>loop.map(p=>p.clone())),shapeData=patchShapeData(m,info.patch);if(!previewLoops.length||!shapeData)return;
+  interaction={...common,patch:info.patch,shapeData,previewLoops,startGeometryPositions:serializeGeometry(m.mesh.geometry),deltaLocal:0,before:snapshot()};
+  createPushPullPreview(interaction);
   showInference('FACE');
   renderer.domElement.setPointerCapture?.(e.pointerId);
 }
@@ -3253,34 +3269,13 @@ function pushPullDelta(st,x,y){
   const localScale=st.axisLocal.clone().multiply(st.m.group.scale).length()||1;
   return worldDelta/localScale;
 }
-function restorePushPullStart(st){
-  if(st.wasBaked)return setMassGeometry(st.m,geometryFromPositions(st.startBakedPositions),true);
-  const ok=setMassGeometry(st.m,geometryFromPositions(st.startBakedPositions),false);
-  if(ok)st.m.cuts=st.startCuts.map(cloneCut);
-  return ok;
-}
-function applyMeshFacePushPullLive(st,deltaLocal,force=false){
-  const now=performance.now(),step=Math.max(.004,worldUnitsPerPixel(st.anchor)*1.4);
-  if(!force&&st.lastLiveDelta!=null&&Math.abs(deltaLocal-st.lastLiveDelta)<step)return true;
-  if(!force&&now-st.lastLiveTime<42)return true; // keep CSG responsive without rebuilding on every pointer event
-  st.lastLiveTime=now;
-  let ok=true;
-  if(Math.abs(deltaLocal)<.003){
-    if(st.lastLiveDelta==null)return true;
-    ok=restorePushPullStart(st);
-  }else{
-    ok=commitMeshFacePushPull(st,deltaLocal);
-  }
-  if(ok){st.lastLiveDelta=deltaLocal;st.liveFailed=false;}else st.liveFailed=true;
-  return ok;
-}
 function applyPushPull(x,y){const st=interaction;if(!st||st.kind!=='pushpull')return;const deltaLocal=pushPullDelta(st,x,y);
   st.deltaLocal=deltaLocal;
-  applyMeshFacePushPullLive(st,deltaLocal,false);
+  updatePushPullPreview(st,deltaLocal);
   showInference((deltaLocal>=0?'PULL ':'PUSH ')+Math.abs(deltaLocal).toFixed(2));
 }
 function endPushPull(){const st=interaction;if(!st||st.kind!=='pushpull')return;interaction=null;pendingPushPull=null;if(rafPushPull){cancelAnimationFrame(rafPushPull);rafPushPull=0;}
-  const delta=st.deltaLocal||0;clearDragFacePreview();const ok=applyMeshFacePushPullLive(st,delta,true);if(!ok){restorePushPullStart(st);showToast('PUSH/PULL FAILED · RESTORED');}else showToast(Math.abs(delta)<.003?'FACE RESTORED':'FACE PUSH/PULL');showInference('');recordHistory();
+  const delta=st.deltaLocal||0;clearDragFacePreview();if(Math.abs(delta)<.003){showToast('FACE RESTORED');showInference('');return;}const ok=commitMeshFacePushPull(st,delta);if(!ok){showToast('PUSH/PULL FAILED · RESTORED');showInference('');return;}showToast('FACE PUSH/PULL');showInference('');recordHistory();
 }
 
 // --- Move with visible geometry snap -------------------------------------------
@@ -4098,7 +4093,7 @@ if(ui.ipadBrush){
 }
 refreshIPadQuickUI();
 function cancelInteraction(restore=false){
-  if(restore&&interaction?.before)restoreState(interaction.before);interaction=null;pendingPushPull=null;pendingMove=null;pendingModify=null;if(rafPushPull){cancelAnimationFrame(rafPushPull);rafPushPull=0;}if(rafMove){cancelAnimationFrame(rafMove);rafMove=0;}if(rafModify){cancelAnimationFrame(rafModify);rafModify=0;}clearPreview();clearPushHover();clearDragFacePreview();clearSnapVisual();clearSpherePreview();hideMarquee();axisLock=null;
+  if(restore&&interaction?.before&&interaction.kind!=='pushpull')restoreState(interaction.before);interaction=null;pendingPushPull=null;pendingMove=null;pendingModify=null;if(rafPushPull){cancelAnimationFrame(rafPushPull);rafPushPull=0;}if(rafMove){cancelAnimationFrame(rafMove);rafMove=0;}if(rafModify){cancelAnimationFrame(rafModify);rafModify=0;}clearPreview();clearPushHover();clearDragFacePreview();clearSnapVisual();clearSpherePreview();hideMarquee();axisLock=null;
 }
 
 // --- Marquee selection ----------------------------------------------------------
@@ -4784,7 +4779,7 @@ document.addEventListener('visibilitychange',async()=>{
   standaloneResumeRefreshing=true;
   try{await saveAutosaveNow();}catch(_){ }
   const u=new URL(location.href);
-  u.searchParams.set('__ma_build',window.__MA_BUILD__||'6.11');
+  u.searchParams.set('__ma_build',window.__MA_BUILD__||'6.12');
   u.searchParams.set('__ma_resume',String(Date.now()));
   location.replace(u.href);
 });
