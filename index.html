@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="ma-build" content="6.05">
+<meta name="ma-build" content="6.06">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -10,10 +10,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#151515">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>MA — iPad · Apple Pencil · v6.05</title>
+<title>MA — iPad · Apple Pencil · v6.06</title>
 <script>
 (() => {
-  const CURRENT_BUILD = '6.05';
+  const CURRENT_BUILD = '6.06';
   const CHECK_INTERVAL = 30000;
   let lastCheck = 0;
   let checking = false;
@@ -1052,7 +1052,7 @@ html.ma-ipad #shortcutPanel{top:70px!important}
       <label class="toolbarSettingRow"><span>Scenes</span><input type="checkbox" data-toolbar-section="sceneBar" checked></label>
     </div>
 
-    <div id="sideMenuBuild">BUILD <span id="buildBadge" title="MA build v6.05">6.05</span></div>
+    <div id="sideMenuBuild">BUILD <span id="buildBadge" title="MA build v6.06">6.06</span></div>
   </div>
   <div id="selected"></div>
   <div id="panel">
@@ -3745,9 +3745,10 @@ function deleteAllGeometry(){
 
 const TOOLBAR_STORAGE_KEY='MA3D_TOOLBAR_SECTIONS_V1';
 const TOOLBAR_SECTION_IDS=['planeBooleanTools','drawTools','transformTools','groupTools','historyTools','viewTools','cameraTools','sceneBar'];
+const TOOLBAR_DEFAULT_VISIBILITY={planeBooleanTools:true,drawTools:true,transformTools:true,groupTools:false,historyTools:true,viewTools:true,cameraTools:false,sceneBar:false};
 let toolbarVisibility={};
 function loadToolbarVisibility(){
-  toolbarVisibility=Object.fromEntries(TOOLBAR_SECTION_IDS.map(id=>[id,true]));
+  toolbarVisibility={...TOOLBAR_DEFAULT_VISIBILITY};
   try{
     const raw=localStorage.getItem(TOOLBAR_STORAGE_KEY),saved=raw?JSON.parse(raw):null;
     if(saved&&typeof saved==='object')for(const id of TOOLBAR_SECTION_IDS)if(typeof saved[id]==='boolean')toolbarVisibility[id]=saved[id];
@@ -4747,7 +4748,7 @@ document.addEventListener('visibilitychange',async()=>{
   standaloneResumeRefreshing=true;
   try{await saveAutosaveNow();}catch(_){ }
   const u=new URL(location.href);
-  u.searchParams.set('__ma_build',window.__MA_BUILD__||'6.05');
+  u.searchParams.set('__ma_build',window.__MA_BUILD__||'6.06');
   u.searchParams.set('__ma_resume',String(Date.now()));
   location.replace(u.href);
 });
