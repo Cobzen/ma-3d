@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="ma-build" content="5.95">
+<meta name="ma-build" content="5.97">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -10,10 +10,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#151515">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>MA — iPad · Apple Pencil · v5.95</title>
+<title>MA — iPad · Apple Pencil · v5.97</title>
 <script>
 (() => {
-  const CURRENT_BUILD = '5.95';
+  const CURRENT_BUILD = '5.97';
   const CHECK_INTERVAL = 30000;
   let lastCheck = 0;
   let checking = false;
@@ -1052,7 +1052,7 @@ html.ma-ipad #shortcutPanel{top:70px!important}
       <label class="toolbarSettingRow"><span>Scenes</span><input type="checkbox" data-toolbar-section="sceneBar" checked></label>
     </div>
 
-    <div id="sideMenuBuild">BUILD <span id="buildBadge" title="MA build v5.95">5.95</span></div>
+    <div id="sideMenuBuild">BUILD <span id="buildBadge" title="MA build v5.97">5.97</span></div>
   </div>
   <div id="selected"></div>
   <div id="panel">
@@ -4761,7 +4761,7 @@ document.addEventListener('visibilitychange',async()=>{
   standaloneResumeRefreshing=true;
   try{await saveAutosaveNow();}catch(_){ }
   const u=new URL(location.href);
-  u.searchParams.set('__ma_build',window.__MA_BUILD__||'5.93');
+  u.searchParams.set('__ma_build',window.__MA_BUILD__||'5.97');
   u.searchParams.set('__ma_resume',String(Date.now()));
   location.replace(u.href);
 });

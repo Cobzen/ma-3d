@@ -305,6 +305,13 @@ Efter kodeændringer:
 
 Undgå store blinde search/replace-operationer.
 
+## Versionering
+
+- Hver ændring i MA 3D's app-kode skal øge patch-versionen med 0.01.
+- Versionen skal opdateres i alle build/version-felter i `index.html`.
+- Repo-, CI- eller README-ændringer uden ændring i appen kræver ikke ny MA-version.
+- Version bump skal være en del af samme commit som app-ændringen.
+
 ## Git-workflow
 
 Repositoryet bruger Git.
