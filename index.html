@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="ma-build" content="5.97">
+<meta name="ma-build" content="5.98">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -10,10 +10,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#151515">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>MA — iPad · Apple Pencil · v5.97</title>
+<title>MA — iPad · Apple Pencil · v5.98</title>
 <script>
 (() => {
-  const CURRENT_BUILD = '5.97';
+  const CURRENT_BUILD = '5.98';
   const CHECK_INTERVAL = 30000;
   let lastCheck = 0;
   let checking = false;
@@ -1052,7 +1052,7 @@ html.ma-ipad #shortcutPanel{top:70px!important}
       <label class="toolbarSettingRow"><span>Scenes</span><input type="checkbox" data-toolbar-section="sceneBar" checked></label>
     </div>
 
-    <div id="sideMenuBuild">BUILD <span id="buildBadge" title="MA build v5.97">5.97</span></div>
+    <div id="sideMenuBuild">BUILD <span id="buildBadge" title="MA build v5.98">5.98</span></div>
   </div>
   <div id="selected"></div>
   <div id="panel">
@@ -3281,7 +3281,19 @@ function endPushPull(){const st=interaction;if(!st||st.kind!=='pushpull')return;
 const snapPointMat=new THREE.PointsMaterial({color:accent,size:10,sizeAttenuation:false,depthTest:false});let snapPointObj=null,snapLineObj=null;
 function clearSnapVisual(){if(snapPointObj){scene.remove(snapPointObj);snapPointObj.geometry.dispose();snapPointObj=null;}if(snapLineObj){scene.remove(snapLineObj);snapLineObj.geometry.dispose();snapLineObj.material.dispose();snapLineObj=null;}showInference('');}
 function showSnapVisual(s){clearSnapVisual();if(!s)return;if(s.kind==='vertex'){const g=new THREE.BufferGeometry().setFromPoints([s.point]);snapPointObj=new THREE.Points(g,snapPointMat);snapPointObj.renderOrder=3000;scene.add(snapPointObj);showInference('VERTEX');}else{const g=new THREE.BufferGeometry().setFromPoints([s.a,s.b]);snapLineObj=new THREE.Line(g,new THREE.LineBasicMaterial({color:accent,depthTest:false}));snapLineObj.renderOrder=3000;scene.add(snapLineObj);const pg=new THREE.BufferGeometry().setFromPoints([s.point]);snapPointObj=new THREE.Points(pg,snapPointMat);snapPointObj.renderOrder=3001;scene.add(snapPointObj);showInference('EDGE');}}
-function massWorldVerticesEdges(m){const verts=[],edges=[];if(m.baked){const eg=new THREE.EdgesGeometry(m.mesh.geometry,20),p=eg.attributes.position,seen=new Set();for(let i=0;i+1<p.count;i+=2){const a=m.group.localToWorld(new THREE.Vector3().fromBufferAttribute(p,i)),b=m.group.localToWorld(new THREE.Vector3().fromBufferAttribute(p,i+1));edges.push([a,b]);for(const q of [a,b]){const k=q.x.toFixed(5)+','+q.y.toFixed(5)+','+q.z.toFixed(5);if(!seen.has(k)){seen.add(k);verts.push(q.clone());}}}eg.dispose();return{verts,edges};}const n=m.profile.length;for(const z of [0,m.depth])for(let i=0;i<n;i++)verts.push(m.group.localToWorld(new THREE.Vector3(m.profile[i].x,m.profile[i].y,z)));for(const z of [0,m.depth])for(let i=0;i<n;i++){const j=(i+1)%n;edges.push([m.group.localToWorld(new THREE.Vector3(m.profile[i].x,m.profile[i].y,z)),m.group.localToWorld(new THREE.Vector3(m.profile[j].x,m.profile[j].y,z))]);}for(let i=0;i<n;i++)edges.push([m.group.localToWorld(new THREE.Vector3(m.profile[i].x,m.profile[i].y,0)),m.group.localToWorld(new THREE.Vector3(m.profile[i].x,m.profile[i].y,m.depth))]);return{verts,edges};}
+function massWorldVerticesEdges(m){
+  const verts=[],edges=[],eg=new THREE.EdgesGeometry(m.mesh.geometry,20),p=eg.attributes.position,seen=new Set();
+  for(let i=0;i+1<p.count;i+=2){
+    const a=m.group.localToWorld(new THREE.Vector3().fromBufferAttribute(p,i)),b=m.group.localToWorld(new THREE.Vector3().fromBufferAttribute(p,i+1));
+    edges.push([a,b]);
+    for(const q of [a,b]){
+      const k=q.x.toFixed(5)+','+q.y.toFixed(5)+','+q.z.toFixed(5);
+      if(!seen.has(k)){seen.add(k);verts.push(q.clone());}
+    }
+  }
+  eg.dispose();
+  return{verts,edges};
+}
 function visibleAtScreenPoint(p,ignore){const ignored=ignore instanceof Set?ignore:new Set(ignore?[ignore]:[]);const sc=worldToClient(p);setPointerXY(sc.x,sc.y);const hit=ray.intersectObjects(masses.filter(m=>!ignored.has(m)).map(m=>m.mesh),false)[0];if(!hit)return true;return hit.distance>=camera.position.distanceTo(p)-.045;}
 function visibleOnMass(p,m){const sc=worldToClient(p);setPointerXY(sc.x,sc.y);const hit=ray.intersectObject(m.mesh,false)[0];if(!hit)return true;return hit.distance>=camera.position.distanceTo(p)-.055;}
 function closestPointOnWorldEdgeFromCursor(x,y,a,b){setPointerXY(x,y);const onRay=new THREE.Vector3(),onSeg=new THREE.Vector3();ray.ray.distanceSqToSegment(a,b,onRay,onSeg);return onSeg;}
@@ -4761,7 +4773,7 @@ document.addEventListener('visibilitychange',async()=>{
   standaloneResumeRefreshing=true;
   try{await saveAutosaveNow();}catch(_){ }
   const u=new URL(location.href);
-  u.searchParams.set('__ma_build',window.__MA_BUILD__||'5.97');
+  u.searchParams.set('__ma_build',window.__MA_BUILD__||'5.98');
   u.searchParams.set('__ma_resume',String(Date.now()));
   location.replace(u.href);
 });
