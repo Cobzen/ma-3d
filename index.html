@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="ma-build" content="6.15">
+<meta name="ma-build" content="6.16">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -10,10 +10,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#151515">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>MA — iPad · Apple Pencil · v6.15</title>
+<title>MA — iPad · Apple Pencil · v6.16</title>
 <script>
 (() => {
-  const CURRENT_BUILD = '6.15';
+  const CURRENT_BUILD = '6.16';
   const CHECK_INTERVAL = 30000;
   let lastCheck = 0;
   let checking = false;
@@ -1076,7 +1076,7 @@ html.ma-ipad #shortcutPanel{top:70px!important}
       <label class="toolbarSettingRow"><span>Scenes</span><input type="checkbox" data-toolbar-section="sceneBar" checked></label>
     </div>
 
-    <div id="sideMenuBuild">BUILD <span id="buildBadge" title="MA build v6.15">6.15</span></div>
+    <div id="sideMenuBuild">BUILD <span id="buildBadge" title="MA build v6.16">6.16</span></div>
   </div>
   <div id="selected"></div>
   <div id="panel">
@@ -3218,7 +3218,7 @@ function endDraw(){
 // --- Push/Pull -----------------------------------------------------------------
 let pushHoverMesh=null,dragFacePreview=null;
 function clearPushHover(){if(pushHoverMesh){scene.remove(pushHoverMesh);pushHoverMesh.geometry.dispose();pushHoverMesh.material.dispose();pushHoverMesh=null;}}
-function clearDragFacePreview(){if(!dragFacePreview)return;const source=dragFacePreview.userData?.source;if(source){source.mesh.visible=source.meshVisible;source.edges.visible=source.edgesVisible;}dragFacePreview.traverse(o=>{o.geometry?.dispose();if(o.material){for(const m of (Array.isArray(o.material)?o.material:[o.material]))m.dispose();}});scene.remove(dragFacePreview);dragFacePreview=null;}
+function clearDragFacePreview(){if(!dragFacePreview)return;const preview=dragFacePreview.userData,source=preview?.source;if(source){source.mesh.visible=source.meshVisible;source.edges.visible=source.edgesVisible;}if(preview?.baseGeometry&&preview.baseGeometry!==preview.mesh?.geometry)preview.baseGeometry.dispose();dragFacePreview.traverse(o=>{o.geometry?.dispose();if(o.material){for(const m of (Array.isArray(o.material)?o.material:[o.material]))m.dispose();}});scene.remove(dragFacePreview);dragFacePreview=null;}
 function meshFaceHoverMesh(m,info){const g=patchLocalGeometry(m,info.patch),o=new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:accent,transparent:true,opacity:.28,side:THREE.DoubleSide,depthTest:false,depthWrite:false}));o.position.copy(m.group.position);o.quaternion.copy(m.group.quaternion);o.scale.copy(m.group.scale);return o;}
 function updatePushHover(x,y){clearPushHover();const hit=raycastMasses(x,y),m=massFromHit(hit);if(!m)return;const info=meshFaceForHit(hit,m);if(!info)return;
   pushHoverMesh=meshFaceHoverMesh(m,info);
@@ -3241,22 +3241,13 @@ function maxPushPullInwardDelta(m,localPoint,axisWorld,axisScale){
   m.group.updateMatrixWorld(true);const g=m.mesh.geometry;g.computeBoundingBox();const scale=Math.max(Math.abs(m.group.scale.x),Math.abs(m.group.scale.y),Math.abs(m.group.scale.z)),worldPad=Math.max(1e-4,g.boundingBox.getSize(new THREE.Vector3()).length()*scale*1e-5),origin=m.group.localToWorld(localPoint.clone()).addScaledVector(axisWorld,-worldPad),probe=new THREE.Raycaster(origin,axisWorld.clone().negate(),worldPad,Infinity),hit=probe.intersectObject(m.mesh,false)[0];
   return hit?Math.max(0,(hit.distance-worldPad)/axisScale):Infinity;
 }
-function patchRemainderGeometry(m,patch){
-  const pos=m.mesh.geometry.attributes.position,a=[],skipped=new Set(patch.triangles);for(let ti=0;ti<pos.count/3;ti++)if(!skipped.has(ti))for(let k=0;k<3;k++){const v=new THREE.Vector3().fromBufferAttribute(pos,ti*3+k);a.push(v.x,v.y,v.z);}const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(a,3));g.computeVertexNormals();return g;
-}
 function previewMaterial(material){return Array.isArray(material)?material.map(m=>m.clone()):material.clone();}
-function previewMesh(geometry,material,source,{doubleSided=false}={}){const cloned=previewMaterial(material);for(const m of (Array.isArray(cloned)?cloned:[cloned]))if(doubleSided)m.side=THREE.DoubleSide;const mesh=new THREE.Mesh(geometry,cloned);mesh.castShadow=source.castShadow;mesh.receiveShadow=source.receiveShadow;return mesh;}
+function previewMesh(geometry,material,source){const mesh=new THREE.Mesh(geometry,previewMaterial(material));mesh.castShadow=source.castShadow;mesh.receiveShadow=source.receiveShadow;return mesh;}
 function createPushPullPreview(st){
-  const group=new THREE.Group(),body=previewMesh(patchRemainderGeometry(st.m,st.patch),st.m.mesh.material,st.m.mesh),face=previewMesh(patchLocalGeometry(st.m,st.patch),st.m.mesh.material,st.m.mesh),edgePairs=[];
-  for(const loop of st.previewLoops)for(let i=0;i<loop.length;i++)edgePairs.push([loop[i],loop[(i+1)%loop.length]]);
-  const side=previewMesh(new THREE.BufferGeometry(),st.m.mesh.material,st.m.mesh,{doubleSided:true});
-  side.geometry.setAttribute('position',new THREE.BufferAttribute(new Float32Array(edgePairs.length*18),3));
-  const source={mesh:st.m.mesh,edges:st.m.edges,meshVisible:st.m.mesh.visible,edgesVisible:st.m.edges.visible},preview={body,face,side,edgePairs,source};group.position.copy(st.m.group.position);group.quaternion.copy(st.m.group.quaternion);group.scale.copy(st.m.group.scale);group.add(body,face,side);group.userData=preview;st.preview=preview;source.mesh.visible=false;source.edges.visible=false;scene.add(group);dragFacePreview=group;updatePushPullPreview(st,0);
+  const group=new THREE.Group(),baseGeometry=st.m.mesh.geometry.clone(),mesh=previewMesh(baseGeometry.clone(),st.m.mesh.material,st.m.mesh),source={mesh:st.m.mesh,edges:st.m.edges,meshVisible:st.m.mesh.visible,edgesVisible:st.m.edges.visible},preview={mesh,baseGeometry,isBase:true,lastUpdate:0,source};group.position.copy(st.m.group.position);group.quaternion.copy(st.m.group.quaternion);group.scale.copy(st.m.group.scale);group.add(mesh);group.userData=preview;st.preview=preview;source.mesh.visible=false;source.edges.visible=false;scene.add(group);dragFacePreview=group;
 }
 function updatePushPullPreview(st,delta){
-  if(!dragFacePreview||dragFacePreview.userData!==st.preview)return;const {face,side,edgePairs}=st.preview,shift=st.axisLocal.clone().multiplyScalar(delta),a=side.geometry.attributes.position.array;face.position.copy(shift);let o=0;
-  for(const [p,q] of edgePairs){const p1=p.clone().add(shift),q1=q.clone().add(shift);for(const v of [p,q,q1,p,q1,p1]){a[o++]=v.x;a[o++]=v.y;a[o++]=v.z;}}
-  side.geometry.attributes.position.needsUpdate=true;side.geometry.computeVertexNormals();side.geometry.computeBoundingSphere();
+  if(!dragFacePreview||dragFacePreview.userData!==st.preview)return;if(Math.abs(delta)<.003){if(!st.preview.isBase){const old=st.preview.mesh.geometry,next=st.preview.baseGeometry.clone();st.preview.mesh.geometry=next;old.dispose();st.preview.isBase=true;}return;}const now=performance.now();if(now-st.preview.lastUpdate<80)return;st.preview.lastUpdate=now;const prism=patchPrismGeometry(st.m,st.patch,delta,st.shapeData),operation=delta>0?'union':'subtract';if(!prism)return;let next=null;try{next=operation==='union'?unionGeometry(st.preview.baseGeometry,prism):subtractGeometry(st.preview.baseGeometry,prism);if(!pushPullResultIsSane(st.preview.baseGeometry,prism,next,operation)){next.dispose();return;}const old=st.preview.mesh.geometry;st.preview.mesh.geometry=next;old.dispose();st.preview.isBase=false;}catch(err){console.warn('Push/Pull preview failed',err);next?.dispose();}finally{prism.dispose();}
 }
 function beginPushPull(e){const hit=raycastMasses(e.clientX,e.clientY),m=massFromHit(hit);if(!m)return;const info=meshFaceForHit(hit,m);if(!info)return;clearPushHover();clearDragFacePreview();selectMass(m);
   const axisLocal=info.normalLocal.clone().normalize(),axisWorld=localDirectionToWorld(m,axisLocal),anchor=hit.point.clone(),s0=worldToClient(anchor),s1=worldToClient(anchor.clone().add(axisWorld));let sd=s1.clone().sub(s0),px=sd.length();if(px<1e-4){sd.set(0,-1);px=1;}else sd.multiplyScalar(1/px);
@@ -3266,8 +3257,8 @@ function beginPushPull(e){const hit=raycastMasses(e.clientX,e.clientY),m=massFro
   const axisDragMode=(axisViewAlignment<.965&&px>=2.5)?'axis3d':'screen';
   const axisStartParam=axisDragMode==='axis3d'?pushPullRayAxisParameter(e.clientX,e.clientY,anchor,axisWorld):null;
   const axisScale=axisLocal.clone().multiply(m.group.scale).length()||1,maxPushLocal=maxPushPullInwardDelta(m,info.localPoint,axisWorld,axisScale),common={kind:'pushpull',pointerId:e.pointerId,m,info,axisLocal,axisWorld,anchor,startClient:vec2(e.clientX,e.clientY),screenDir:sd,pxPerWorld:px,axisDragMode,axisStartParam:Number.isFinite(axisStartParam)?axisStartParam:0,axisScale,maxPushLocal};
-  const previewLoops=patchLoops(m,info.patch).map(loop=>loop.map(p=>p.clone())),shapeData=patchShapeData(m,info.patch);if(!previewLoops.length||!shapeData)return;
-  interaction={...common,patch:info.patch,shapeData,previewLoops,startGeometryPositions:serializeGeometry(m.mesh.geometry),deltaLocal:0,before:snapshot()};
+  const shapeData=patchShapeData(m,info.patch);if(!shapeData)return;
+  interaction={...common,patch:info.patch,shapeData,startGeometryPositions:serializeGeometry(m.mesh.geometry),deltaLocal:0,before:snapshot()};
   createPushPullPreview(interaction);
   showInference('FACE');
   renderer.domElement.setPointerCapture?.(e.pointerId);
@@ -4800,7 +4791,7 @@ document.addEventListener('visibilitychange',async()=>{
   standaloneResumeRefreshing=true;
   try{await saveAutosaveNow();}catch(_){ }
   const u=new URL(location.href);
-  u.searchParams.set('__ma_build',window.__MA_BUILD__||'6.15');
+  u.searchParams.set('__ma_build',window.__MA_BUILD__||'6.16');
   u.searchParams.set('__ma_resume',String(Date.now()));
   location.replace(u.href);
 });
