@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="ma-build" content="6.00">
+<meta name="ma-build" content="6.01">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -10,10 +10,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#151515">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>MA — iPad · Apple Pencil · v6.00</title>
+<title>MA — iPad · Apple Pencil · v6.01</title>
 <script>
 (() => {
-  const CURRENT_BUILD = '6.00';
+  const CURRENT_BUILD = '6.01';
   const CHECK_INTERVAL = 30000;
   let lastCheck = 0;
   let checking = false;
@@ -1052,7 +1052,7 @@ html.ma-ipad #shortcutPanel{top:70px!important}
       <label class="toolbarSettingRow"><span>Scenes</span><input type="checkbox" data-toolbar-section="sceneBar" checked></label>
     </div>
 
-    <div id="sideMenuBuild">BUILD <span id="buildBadge" title="MA build v6.00">6.00</span></div>
+    <div id="sideMenuBuild">BUILD <span id="buildBadge" title="MA build v6.01">6.01</span></div>
   </div>
   <div id="selected"></div>
   <div id="panel">
@@ -2196,6 +2196,9 @@ function subtractGeometry(baseGeometry,cutterGeometry){
 function unionGeometry(baseGeometry,addGeometry){
   let base=null,add=null,result=null,cleaned=null;try{base=geometryToManifold(baseGeometry);add=geometryToManifold(addGeometry);result=base.add(add);const status=result.status();if(status!=='NoError'||result.isEmpty())throw new Error('Boolean result: '+status);baseGeometry.computeBoundingBox();const tol=Math.max(1,baseGeometry.boundingBox.getSize(new THREE.Vector3()).length())*1e-6;cleaned=result.simplify(tol);return manifoldToGeometry(cleaned);}finally{if(cleaned)cleaned.delete();if(result)result.delete();if(add)add.delete();if(base)base.delete();}
 }
+function commitMassBoolean(m,baseGeometry,cutter,operation='subtract'){
+  let next=null;try{next=operation==='union'?unionGeometry(baseGeometry,cutter):subtractGeometry(baseGeometry,cutter);if(!setMassGeometry(m,next,true)){next.dispose();return false;}return true;}catch(err){console.warn('Mass boolean failed',err);next?.dispose();return false;}
+}
 function geometryFromPositions(arr){
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(arr,3));g.computeVertexNormals();g.computeBoundingBox();g.computeBoundingSphere();return g;
 }
@@ -2752,7 +2755,7 @@ function patchPrismGeometry(m,patch,delta){
   const g=new THREE.ExtrudeGeometry(shape,{depth:z1-z0,bevelEnabled:false,steps:1,curveSegments:1});g.applyMatrix4(new THREE.Matrix4().compose(d.origin.clone().addScaledVector(patch.normal,z0),basisQuaternion(d.u,d.v,patch.normal),new THREE.Vector3(1,1,1)));g.computeVertexNormals();g.computeBoundingBox();g.computeBoundingSphere();return g;
 }
 function commitMeshFacePushPull(st,delta){
-  if(Math.abs(delta)<1e-4)return true;const base=geometryFromPositions(st.startBakedPositions),prism=patchPrismGeometry(st.m,st.patch,delta);if(!prism){base.dispose();return false;}let next=null;try{next=delta>0?unionGeometry(base,prism):subtractGeometry(base,prism);return setMassGeometry(st.m,next,true);}catch(err){console.warn('Baked face Push/Pull failed',err);if(next)next.dispose();return false;}finally{base.dispose();prism.dispose();}
+  if(Math.abs(delta)<1e-4)return true;const base=geometryFromPositions(st.startBakedPositions),prism=patchPrismGeometry(st.m,st.patch,delta);if(!prism){base.dispose();return false;}try{return commitMassBoolean(st.m,base,prism,delta>0?'union':'subtract');}finally{base.dispose();prism.dispose();}
 }
 
 function pointInPolygon2D(p,poly){
@@ -2873,7 +2876,7 @@ function endSphereDraw(){
   if(drawMode==='cut'){
     const host=massById(st.plane.hostId);if(!host){g.dispose();return;}
     host.group.updateMatrixWorld(true);const worldM=new THREE.Matrix4().compose(d.center,q,new THREE.Vector3(1,1,1)),toLocal=host.group.matrixWorld.clone().invert().multiply(worldM);g.applyMatrix4(toLocal);g.computeVertexNormals();g.computeBoundingBox();g.computeBoundingSphere();
-    let next=null;try{next=subtractGeometry(host.mesh.geometry,g);if(setMassGeometry(host,next,true)){selectMass(host);recordHistory();}else next?.dispose();}catch(err){console.warn('Ellipsoid cut failed',err);next?.dispose();}finally{g.dispose();}
+    try{if(commitMassBoolean(host,host.mesh.geometry,g)){selectMass(host);recordHistory();}}finally{g.dispose();}
     return;
   }
   const data={type:'sphere',profile:[],depth:brushSize(),bakedPositions:serializeGeometry(g),position:d.center.toArray(),quaternion:q.toArray(),scale:[1,1,1]};g.dispose();const m=makeMass(data,false);if(m){selectMass(m);recordHistory();}
@@ -3076,9 +3079,8 @@ function commitCurveStroke(st,points){
       const mat=new THREE.Matrix4().compose(workplane.origin.clone(),q,new THREE.Vector3(1,1,1));
       const hostInv=host.group.matrixWorld.clone().invert();
       cutter.applyMatrix4(hostInv.multiply(mat));
-      let next=subtractGeometry(host.mesh.geometry,cutter);
-      if(setMassGeometry(host,next,true)){selectMass(host);recordHistory();showToast(st.tool==='boxbrush'?'BOX BRUSH CUT BAKED':'CURVE CUT BAKED');}
-      else{next?.dispose();showToast(st.tool==='boxbrush'?'BOX BRUSH CUT FAILED':'CURVE CUT FAILED');}
+      if(commitMassBoolean(host,host.mesh.geometry,cutter)){selectMass(host);recordHistory();showToast(st.tool==='boxbrush'?'BOX BRUSH CUT BAKED':'CURVE CUT BAKED');}
+      else showToast(st.tool==='boxbrush'?'BOX BRUSH CUT FAILED':'CURVE CUT FAILED');
     }catch(err){console.warn('Curve/box brush cut failed',err);showToast(st.tool==='boxbrush'?'BOX BRUSH CUT FAILED':'CURVE CUT FAILED');}
     finally{cutter.dispose();}
   }else{
@@ -3092,9 +3094,8 @@ function commitProfile(st,profile){
   if(p.length<3||Math.abs(signedArea(p))<.002||!simplePolygon(p)){showToast('SHAPE TOO SMALL / CROSSED');return;}
   if(drawMode==='cut'){
     const host=massById(workplane.hostId);if(!host){showToast('CUT NEEDS A SURFACE WORKPLANE');return;}
-    const cut=makeCutRecord(p,host,Math.abs(activeDepth)),cutter=makeCutGeometry(cut);if(!cutter){showToast('CUT FAILED');return;}let next=null;
-    try{next=subtractGeometry(host.mesh.geometry,cutter);if(setMassGeometry(host,next,true)){selectMass(host);recordHistory();showToast('CUT BAKED INTO GEOMETRY · '+cut.depth.toFixed(2));}else{next?.dispose();showToast('CUT FAILED');}}
-    catch(err){console.warn('Bake cut failed',err);next?.dispose();showToast('CUT FAILED');}
+    const cut=makeCutRecord(p,host,Math.abs(activeDepth)),cutter=makeCutGeometry(cut);if(!cutter){showToast('CUT FAILED');return;}
+    try{if(commitMassBoolean(host,host.mesh.geometry,cutter)){selectMass(host);recordHistory();showToast('CUT BAKED INTO GEOMETRY · '+cut.depth.toFixed(2));}else showToast('CUT FAILED');}
     finally{cutter.dispose();}
   }else{
     const m=makeMass({type:st.tool,profile:p.map(q=>({x:q.x,y:q.y})),depth:activeDepth,position:workplane.origin.toArray(),quaternion:basisQuaternion(workplane.u,workplane.v,workplane.n).toArray(),scale:[1,1,1]},false);if(m){selectMass(m);recordHistory();showToast('MASS CREATED');}
@@ -4787,7 +4788,7 @@ document.addEventListener('visibilitychange',async()=>{
   standaloneResumeRefreshing=true;
   try{await saveAutosaveNow();}catch(_){ }
   const u=new URL(location.href);
-  u.searchParams.set('__ma_build',window.__MA_BUILD__||'6.00');
+  u.searchParams.set('__ma_build',window.__MA_BUILD__||'6.01');
   u.searchParams.set('__ma_resume',String(Date.now()));
   location.replace(u.href);
 });
