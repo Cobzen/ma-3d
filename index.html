@@ -2200,11 +2200,11 @@ function geometryFromPositions(arr){
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(arr,3));g.computeVertexNormals();g.computeBoundingBox();g.computeBoundingSphere();return g;
 }
 function serializeGeometry(g){return Array.from(g.attributes.position.array);}
-function invalidateMassGeometryDerivedState(m){
+function invalidateMassGeometryDerivedState(m,{invalidateManifold=false}={}){
   if(!m)return;
-  // Every modelling cache is derived from the real mesh. Never retain it across
-  // a geometry change, whether the geometry was replaced or edited in place.
-  if(m.mesh.geometry.userData?.manifoldMesh)delete m.mesh.geometry.userData.manifoldMesh;
+  // A Manifold cache survives a replacement only when it belongs to that new
+  // geometry. In-place vertex edits make the current cache stale.
+  if(invalidateManifold&&m.mesh.geometry.userData?.manifoldMesh)delete m.mesh.geometry.userData.manifoldMesh;
   m._facePatches=null;
   m._triToPatch=null;
   m._patchGeometry=null;
@@ -2220,13 +2220,14 @@ function commitMassGeometry(m,g,{smooth=true}={}){
   g.computeVertexNormals();
   g.computeBoundingBox();
   g.computeBoundingSphere();
-  if(previous!==g){
+  const replaced=previous!==g;
+  if(replaced){
     m.mesh.geometry=g;
     previous?.dispose();
   }
   m.edges.geometry.dispose();
   m.edges.geometry=new THREE.EdgesGeometry(g,20);
-  invalidateMassGeometryDerivedState(m);
+  invalidateMassGeometryDerivedState(m,{invalidateManifold:!replaced});
   updateMassVisual(m);
   return true;
 }
