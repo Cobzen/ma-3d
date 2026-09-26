@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="ma-build" content="6.08">
+<meta name="ma-build" content="6.09">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -10,10 +10,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#151515">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>MA — iPad · Apple Pencil · v6.08</title>
+<title>MA — iPad · Apple Pencil · v6.09</title>
 <script>
 (() => {
-  const CURRENT_BUILD = '6.08';
+  const CURRENT_BUILD = '6.09';
   const CHECK_INTERVAL = 30000;
   let lastCheck = 0;
   let checking = false;
@@ -1043,6 +1043,12 @@ html.ma-ipad #shortcutPanel{top:70px!important}
     <button id="exportProcreatePSD" class="menuWide" title="Export Workspace, Masse, Notan and Depth as layers in a PSD for Procreate">◫ &nbsp; PROCREATE PSD · 4 VIEW LAYERS</button>
     <button id="deleteAll" class="menuWide" title="Delete all geometry">⌫ &nbsp; DELETE ALL GEOMETRY</button>
 
+    <div class="menuSectionTitle">MODELING</div>
+    <div class="menuGrid">
+      <button id="menuViewWorkplane" title="View workplane · adjust depth">▱ &nbsp; VIEW WORKPLANE</button>
+      <button id="menuBooleanMode" title="Toggle Add / Cut">± &nbsp; ADD / CUT</button>
+    </div>
+
     <div class="menuSectionTitle">SETTINGS</div>
     <button id="shortcutBtn" class="menuWide">⌘ &nbsp; SHORTCUTS</button>
     <button id="toolbarSettingsBtn" class="menuWide">☷ &nbsp; TOOLBAR SETTINGS</button>
@@ -1058,7 +1064,7 @@ html.ma-ipad #shortcutPanel{top:70px!important}
       <label class="toolbarSettingRow"><span>Scenes</span><input type="checkbox" data-toolbar-section="sceneBar" checked></label>
     </div>
 
-    <div id="sideMenuBuild">BUILD <span id="buildBadge" title="MA build v6.08">6.08</span></div>
+    <div id="sideMenuBuild">BUILD <span id="buildBadge" title="MA build v6.09">6.09</span></div>
   </div>
   <div id="selected"></div>
   <div id="panel">
@@ -3757,7 +3763,7 @@ function deleteAllGeometry(){
 
 const TOOLBAR_STORAGE_KEY='MA3D_TOOLBAR_SECTIONS_V1';
 const TOOLBAR_SECTION_IDS=['planeBooleanTools','drawTools','transformTools','transformExtras','groupTools','historyTools','viewTools','cameraTools','sceneBar'];
-const TOOLBAR_DEFAULT_VISIBILITY={planeBooleanTools:true,drawTools:true,transformTools:true,transformExtras:false,groupTools:false,historyTools:true,viewTools:true,cameraTools:false,sceneBar:false};
+const TOOLBAR_DEFAULT_VISIBILITY={planeBooleanTools:false,drawTools:true,transformTools:true,transformExtras:false,groupTools:false,historyTools:true,viewTools:true,cameraTools:false,sceneBar:false};
 let toolbarVisibility={};
 function loadToolbarVisibility(){
   toolbarVisibility={...TOOLBAR_DEFAULT_VISIBILITY};
@@ -4118,6 +4124,7 @@ function toggleViewWorkplanePanel(){
   openViewWorkplanePanel(workplaneKind!=='view');
 }
 document.getElementById('viewWorkplaneBtn').onclick=toggleViewWorkplanePanel;
+document.getElementById('menuViewWorkplane').onclick=()=>{openSideMenu(false);toggleViewWorkplanePanel();};
 document.getElementById('viewWorkplaneClose').onclick=()=>{
   document.getElementById('viewWorkplanePanel').style.display='none';
   setViewPlanePreviewVisible(false);
@@ -4154,6 +4161,7 @@ function setDrawMode(mode){
   scheduleAutosave();
 }
 ui.booleanMode.onclick=()=>setDrawMode(drawMode==='add'?'cut':'add');
+document.getElementById('menuBooleanMode').onclick=()=>{openSideMenu(false);setDrawMode(drawMode==='add'?'cut':'add');};
 document.getElementById('viewCycleBtn').onclick=cycleViewMode;
 document.getElementById('lightSettingsBtn').onclick=()=>{
   if(viewMode==='depth'){
@@ -4760,7 +4768,7 @@ document.addEventListener('visibilitychange',async()=>{
   standaloneResumeRefreshing=true;
   try{await saveAutosaveNow();}catch(_){ }
   const u=new URL(location.href);
-  u.searchParams.set('__ma_build',window.__MA_BUILD__||'6.08');
+  u.searchParams.set('__ma_build',window.__MA_BUILD__||'6.09');
   u.searchParams.set('__ma_resume',String(Date.now()));
   location.replace(u.href);
 });
