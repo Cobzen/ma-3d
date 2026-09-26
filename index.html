@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="ma-build" content="6.07">
+<meta name="ma-build" content="6.08">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -10,10 +10,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#151515">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>MA — iPad · Apple Pencil · v6.07</title>
+<title>MA — iPad · Apple Pencil · v6.08</title>
 <script>
 (() => {
-  const CURRENT_BUILD = '6.07';
+  const CURRENT_BUILD = '6.08';
   const CHECK_INTERVAL = 30000;
   let lastCheck = 0;
   let checking = false;
@@ -967,10 +967,15 @@ html.ma-ipad #shortcutPanel{top:70px!important}
 
       <span class="toolbarDivider"></span>
 
-      <div class="toolbarGroup labeledGroup" id="transformTools" title="Transform" data-section="MODIFY">
+      <div class="toolbarGroup labeledGroup" id="transformTools" title="Modify" data-section="MODIFY">
         <button class="tool iconTool" data-tool="select" title="Select / Move" aria-label="Select Move"><span class="icon">↖</span></button>
         <button class="tool iconTool" data-tool="pushpull" title="Push / Pull" aria-label="Push Pull"><span class="icon">↕</span></button>
         <button class="tool iconTool" data-tool="modify" title="Modify · move corner / edge" aria-label="Modify"><span class="icon">⌗</span></button>
+      </div>
+
+      <span class="toolbarDivider"></span>
+
+      <div class="toolbarGroup labeledGroup" id="transformExtras" title="Transform" data-section="TRANSFORM">
         <button class="tool iconTool" data-tool="rotate" title="Rotate" aria-label="Rotate"><span class="icon">⟳</span></button>
         <button class="tool iconTool" data-tool="scale" title="Scale" aria-label="Scale"><span class="icon">⤢</span></button>
       </div>
@@ -1045,6 +1050,7 @@ html.ma-ipad #shortcutPanel{top:70px!important}
       <label class="toolbarSettingRow"><span>Setup</span><input type="checkbox" data-toolbar-section="planeBooleanTools" checked></label>
       <label class="toolbarSettingRow"><span>Draw</span><input type="checkbox" data-toolbar-section="drawTools" checked></label>
       <label class="toolbarSettingRow"><span>Modify</span><input type="checkbox" data-toolbar-section="transformTools" checked></label>
+      <label class="toolbarSettingRow"><span>Rotate / Scale</span><input type="checkbox" data-toolbar-section="transformExtras"></label>
       <label class="toolbarSettingRow"><span>Group</span><input type="checkbox" data-toolbar-section="groupTools" checked></label>
       <label class="toolbarSettingRow"><span>History</span><input type="checkbox" data-toolbar-section="historyTools" checked></label>
       <label class="toolbarSettingRow"><span>View</span><input type="checkbox" data-toolbar-section="viewTools" checked></label>
@@ -1052,7 +1058,7 @@ html.ma-ipad #shortcutPanel{top:70px!important}
       <label class="toolbarSettingRow"><span>Scenes</span><input type="checkbox" data-toolbar-section="sceneBar" checked></label>
     </div>
 
-    <div id="sideMenuBuild">BUILD <span id="buildBadge" title="MA build v6.07">6.07</span></div>
+    <div id="sideMenuBuild">BUILD <span id="buildBadge" title="MA build v6.08">6.08</span></div>
   </div>
   <div id="selected"></div>
   <div id="panel">
@@ -3750,8 +3756,8 @@ function deleteAllGeometry(){
 }
 
 const TOOLBAR_STORAGE_KEY='MA3D_TOOLBAR_SECTIONS_V1';
-const TOOLBAR_SECTION_IDS=['planeBooleanTools','drawTools','transformTools','groupTools','historyTools','viewTools','cameraTools','sceneBar'];
-const TOOLBAR_DEFAULT_VISIBILITY={planeBooleanTools:true,drawTools:true,transformTools:true,groupTools:false,historyTools:true,viewTools:true,cameraTools:false,sceneBar:false};
+const TOOLBAR_SECTION_IDS=['planeBooleanTools','drawTools','transformTools','transformExtras','groupTools','historyTools','viewTools','cameraTools','sceneBar'];
+const TOOLBAR_DEFAULT_VISIBILITY={planeBooleanTools:true,drawTools:true,transformTools:true,transformExtras:false,groupTools:false,historyTools:true,viewTools:true,cameraTools:false,sceneBar:false};
 let toolbarVisibility={};
 function loadToolbarVisibility(){
   toolbarVisibility={...TOOLBAR_DEFAULT_VISIBILITY};
@@ -4754,7 +4760,7 @@ document.addEventListener('visibilitychange',async()=>{
   standaloneResumeRefreshing=true;
   try{await saveAutosaveNow();}catch(_){ }
   const u=new URL(location.href);
-  u.searchParams.set('__ma_build',window.__MA_BUILD__||'6.07');
+  u.searchParams.set('__ma_build',window.__MA_BUILD__||'6.08');
   u.searchParams.set('__ma_resume',String(Date.now()));
   location.replace(u.href);
 });
