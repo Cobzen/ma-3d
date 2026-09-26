@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="ma-build" content="6.16">
+<meta name="ma-build" content="6.17">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -10,10 +10,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#151515">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>MA — iPad · Apple Pencil · v6.16</title>
+<title>MA — iPad · Apple Pencil · v6.17</title>
 <script>
 (() => {
-  const CURRENT_BUILD = '6.16';
+  const CURRENT_BUILD = '6.17';
   const CHECK_INTERVAL = 30000;
   let lastCheck = 0;
   let checking = false;
@@ -1076,7 +1076,7 @@ html.ma-ipad #shortcutPanel{top:70px!important}
       <label class="toolbarSettingRow"><span>Scenes</span><input type="checkbox" data-toolbar-section="sceneBar" checked></label>
     </div>
 
-    <div id="sideMenuBuild">BUILD <span id="buildBadge" title="MA build v6.16">6.16</span></div>
+    <div id="sideMenuBuild">BUILD <span id="buildBadge" title="MA build v6.17">6.17</span></div>
   </div>
   <div id="selected"></div>
   <div id="panel">
@@ -2767,28 +2767,23 @@ function meshFaceForHit(hit,m){
   return{kind:'meshFace',patchIndex,patch,normalLocal:patch.normal.clone(),localPoint:m.group.worldToLocal(hit.point.clone())};
 }
 function patchLocalGeometry(m,patch){const pos=m.mesh.geometry.attributes.position,a=[];for(const ti of patch.triangles)for(let k=0;k<3;k++){const v=new THREE.Vector3().fromBufferAttribute(pos,ti*3+k);a.push(v.x,v.y,v.z);}const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(a,3));g.computeVertexNormals();return g;}
-function patchLoops(m,patch){
-  if(patch.loops&&patch.u&&patch.v)return patch.loops;const tris=m._patchTris||[];const edgeMap=new Map(),pointMap=new Map();
-  for(const ti of patch.triangles){const T=tris[ti];for(let e=0;e<3;e++){const a=T.keys[e],b=T.keys[(e+1)%3],key=a<b?a+'|'+b:b+'|'+a;pointMap.set(a,T.p[e].clone());pointMap.set(b,T.p[(e+1)%3].clone());const rec=edgeMap.get(key)||{count:0,a,b};rec.count++;rec.a=a;rec.b=b;edgeMap.set(key,rec);}}
-  const out=new Map(),edges=[];for(const rec of edgeMap.values())if(rec.count===1){edges.push({a:rec.a,b:rec.b});if(!out.has(rec.a))out.set(rec.a,[]);out.get(rec.a).push(rec.b);}
-  const used=new Set(),loops=[];for(const e0 of edges){const ek=e0.a+'>'+e0.b;if(used.has(ek))continue;const keys=[e0.a];let a=e0.a,b=e0.b,guard=0;while(guard++<edges.length+4){used.add(a+'>'+b);keys.push(b);if(b===keys[0])break;const cand=(out.get(b)||[]).find(c=>!used.has(b+'>'+c));if(!cand)break;a=b;b=cand;}if(keys.length>3&&keys[keys.length-1]===keys[0])keys.pop();if(keys.length>=3)loops.push(keys.map(k=>pointMap.get(k).clone()));}
-  let u=null;for(const L of loops)if(L.length>1){u=L[1].clone().sub(L[0]);u.addScaledVector(patch.normal,-u.dot(patch.normal));if(u.lengthSq()>1e-12){u.normalize();break;}}if(!u)u=Math.abs(patch.normal.x)<.8?new THREE.Vector3(1,0,0):new THREE.Vector3(0,1,0);u.addScaledVector(patch.normal,-u.dot(patch.normal)).normalize();const v=patch.normal.clone().cross(u).normalize();patch.u=u;patch.v=v;patch.loops=loops;return loops;
+function pushPullFaceData(m,patch){
+  const tris=m._patchTris||[],edges=new Map(),points=new Map(),addEdge=(a,b)=>{const key=a<b?a+'|'+b:b+'|'+a,rec=edges.get(key)||{a,b,count:0};rec.count++;edges.set(key,rec);};
+  for(const ti of patch.triangles){const t=tris[ti];if(!t)return null;for(let i=0;i<3;i++){points.set(t.keys[i],t.p[i].clone());addEdge(t.keys[i],t.keys[(i+1)%3]);}}
+  const neighbours=new Map(),boundary=[];for(const rec of edges.values())if(rec.count===1){boundary.push(rec);for(const [a,b] of [[rec.a,rec.b],[rec.b,rec.a]]){if(!neighbours.has(a))neighbours.set(a,[]);neighbours.get(a).push(b);}}
+  if(!boundary.length||[...neighbours.values()].some(n=>n.length!==2))return null;
+  const used=new Set(),loops=[];for(const edge of boundary){const first=edge.a<edge.b?edge.a+'|'+edge.b:edge.b+'|'+edge.a;if(used.has(first))continue;const keys=[],start=edge.a;let previous=null,current=start,guard=0;while(guard++<=boundary.length){keys.push(current);const next=(neighbours.get(current)||[]).find(k=>k!==previous);if(!next)return null;const key=current<next?current+'|'+next:next+'|'+current;if(used.has(key)&&next!==start)return null;used.add(key);previous=current;current=next;if(current===start)break;}if(current!==start||keys.length<3)return null;loops.push(keys.map(k=>points.get(k).clone()));}
+  const normal=patch.normal.clone().normalize();let u=loops[0][1].clone().sub(loops[0][0]);u.addScaledVector(normal,-u.dot(normal));if(u.lengthSq()<1e-12)u=Math.abs(normal.x)<.8?new THREE.Vector3(1,0,0):new THREE.Vector3(0,1,0);u.addScaledVector(normal,-u.dot(normal)).normalize();const v=normal.clone().cross(u).normalize(),origin=loops[0][0].clone(),area=loop=>signedArea(loop.map(p=>{const d=p.clone().sub(origin);return new THREE.Vector2(d.dot(u),d.dot(v));}));let outer=0;for(let i=1;i<loops.length;i++)if(Math.abs(area(loops[i]))>Math.abs(area(loops[outer])))outer=i;
+  for(let i=0;i<loops.length;i++){const positive=area(loops[i])>0;if((i===outer&&!positive)||(i!==outer&&positive))loops[i].reverse();}
+  return{triangles:new Set(patch.triangles),loops,normal};
 }
-function patchShapeData(m,patch){
-  const loops=patchLoops(m,patch),u=patch.u,v=patch.v,o=patch.origin;const L2=loops.map(L=>L.map(p=>{const d=p.clone().sub(o);return new THREE.Vector2(d.dot(u),d.dot(v));}));if(!L2.length)return null;
-  let oi=0,best=0;for(let i=0;i<L2.length;i++){const a=Math.abs(signedArea(L2[i]));if(a>best){best=a;oi=i;}}const outer=L2[oi].map(p=>p.clone()),holes=L2.filter((_,i)=>i!==oi).map(L=>L.map(p=>p.clone()));if(!THREE.ShapeUtils.isClockWise(outer))outer.reverse();for(const h of holes)if(THREE.ShapeUtils.isClockWise(h))h.reverse();return{outer,holes,u:u.clone(),v:v.clone(),normal:patch.normal.clone(),origin:o.clone()};
+function updatePushPullGeometry(st,geometry,delta){
+  const source=st.startGeometryPositions,positions=geometry.attributes.position.array,normal=st.faceData.normal;positions.set(source);for(const ti of st.faceData.triangles){const i=ti*9;for(let k=0;k<9;k+=3){positions[i+k]=source[i+k]+normal.x*delta;positions[i+k+1]=source[i+k+1]+normal.y*delta;positions[i+k+2]=source[i+k+2]+normal.z*delta;}}let offset=source.length;
+  for(const loop of st.faceData.loops)for(let i=0;i<loop.length;i++){const p=loop[i],q=loop[(i+1)%loop.length],p1=p.clone().addScaledVector(normal,delta),q1=q.clone().addScaledVector(normal,delta);for(const point of [p,q,q1,p,q1,p1]){positions[offset++]=point.x;positions[offset++]=point.y;positions[offset++]=point.z;}}
+  geometry.attributes.position.needsUpdate=true;geometry.computeVertexNormals();geometry.computeBoundingBox();geometry.computeBoundingSphere();return geometry;
 }
-function patchPrismGeometry(m,patch,delta,shapeData=null){
-  const d=shapeData||patchShapeData(m,patch);if(!d)return null;const shape=new THREE.Shape(d.outer);for(const h of d.holes){const path=new THREE.Path();path.moveTo(h[0].x,h[0].y);for(let i=1;i<h.length;i++)path.lineTo(h[i].x,h[i].y);path.closePath();shape.holes.push(path);}const eps=Math.max(1e-4,Math.abs(delta)*1e-4),z0=Math.min(0,delta)-eps,z1=Math.max(0,delta)+eps;
-  const g=new THREE.ExtrudeGeometry(shape,{depth:z1-z0,bevelEnabled:false,steps:1,curveSegments:1});g.applyMatrix4(new THREE.Matrix4().compose(d.origin.clone().addScaledVector(d.normal,z0),basisQuaternion(d.u,d.v,d.normal),new THREE.Vector3(1,1,1)));g.computeVertexNormals();g.computeBoundingBox();g.computeBoundingSphere();return g;
-}
-function pushPullResultIsSane(base,prism,result,operation){
-  base.computeBoundingBox();prism.computeBoundingBox();result.computeBoundingBox();const expected=base.boundingBox.clone();if(operation==='union')expected.union(prism.boundingBox);const size=expected.getSize(new THREE.Vector3()),pad=Math.max(1e-4,size.length()*1e-4),r=result.boundingBox;
-  return [r.min.x,r.min.y,r.min.z,r.max.x,r.max.y,r.max.z].every(Number.isFinite)&&r.min.x>=expected.min.x-pad&&r.min.y>=expected.min.y-pad&&r.min.z>=expected.min.z-pad&&r.max.x<=expected.max.x+pad&&r.max.y<=expected.max.y+pad&&r.max.z<=expected.max.z+pad;
-}
-function commitMeshFacePushPull(st,delta){
-  if(Math.abs(delta)<1e-4)return true;const base=geometryFromPositions(st.startGeometryPositions),prism=patchPrismGeometry(st.m,st.patch,delta,st.shapeData),operation=delta>0?'union':'subtract';if(!prism){base.dispose();return false;}let next=null;try{next=operation==='union'?unionGeometry(base,prism):subtractGeometry(base,prism);if(!pushPullResultIsSane(base,prism,next,operation)){next.dispose();return false;}if(!setMassGeometry(st.m,next,true)){next.dispose();return false;}return true;}catch(err){console.warn('Push/Pull boolean failed',err);next?.dispose();return false;}finally{base.dispose();prism.dispose();}
-}
+function createPushPullGeometry(st,delta=0){const sideVertexCount=st.faceData.loops.reduce((count,loop)=>count+loop.length*6,0),g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(st.startGeometryPositions.length+sideVertexCount*3),3));return updatePushPullGeometry(st,g,delta);}
+function commitMeshFacePushPull(st,delta){let geometry=null;try{geometry=createPushPullGeometry(st,delta);if(!geometry||!setMassGeometry(st.m,geometry,true)){geometry?.dispose();return false;}return true;}catch(err){console.warn('Push/Pull geometry commit failed',err);geometry?.dispose();return false;}}
 
 function workplaneFromHit(hit){
   const m=massFromHit(hit);if(!m||!hit?.face)return null;
@@ -3218,7 +3213,7 @@ function endDraw(){
 // --- Push/Pull -----------------------------------------------------------------
 let pushHoverMesh=null,dragFacePreview=null;
 function clearPushHover(){if(pushHoverMesh){scene.remove(pushHoverMesh);pushHoverMesh.geometry.dispose();pushHoverMesh.material.dispose();pushHoverMesh=null;}}
-function clearDragFacePreview(){if(!dragFacePreview)return;const preview=dragFacePreview.userData,source=preview?.source;if(source){source.mesh.visible=source.meshVisible;source.edges.visible=source.edgesVisible;}if(preview?.baseGeometry&&preview.baseGeometry!==preview.mesh?.geometry)preview.baseGeometry.dispose();dragFacePreview.traverse(o=>{o.geometry?.dispose();if(o.material){for(const m of (Array.isArray(o.material)?o.material:[o.material]))m.dispose();}});scene.remove(dragFacePreview);dragFacePreview=null;}
+function clearDragFacePreview(){if(!dragFacePreview)return;const source=dragFacePreview.userData?.source;if(source){source.mesh.visible=source.meshVisible;source.edges.visible=source.edgesVisible;}dragFacePreview.traverse(o=>{o.geometry?.dispose();if(o.material){for(const m of (Array.isArray(o.material)?o.material:[o.material]))m.dispose();}});scene.remove(dragFacePreview);dragFacePreview=null;}
 function meshFaceHoverMesh(m,info){const g=patchLocalGeometry(m,info.patch),o=new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:accent,transparent:true,opacity:.28,side:THREE.DoubleSide,depthTest:false,depthWrite:false}));o.position.copy(m.group.position);o.quaternion.copy(m.group.quaternion);o.scale.copy(m.group.scale);return o;}
 function updatePushHover(x,y){clearPushHover();const hit=raycastMasses(x,y),m=massFromHit(hit);if(!m)return;const info=meshFaceForHit(hit,m);if(!info)return;
   pushHoverMesh=meshFaceHoverMesh(m,info);
@@ -3244,10 +3239,10 @@ function maxPushPullInwardDelta(m,localPoint,axisWorld,axisScale){
 function previewMaterial(material){return Array.isArray(material)?material.map(m=>m.clone()):material.clone();}
 function previewMesh(geometry,material,source){const mesh=new THREE.Mesh(geometry,previewMaterial(material));mesh.castShadow=source.castShadow;mesh.receiveShadow=source.receiveShadow;return mesh;}
 function createPushPullPreview(st){
-  const group=new THREE.Group(),baseGeometry=st.m.mesh.geometry.clone(),mesh=previewMesh(baseGeometry.clone(),st.m.mesh.material,st.m.mesh),source={mesh:st.m.mesh,edges:st.m.edges,meshVisible:st.m.mesh.visible,edgesVisible:st.m.edges.visible},preview={mesh,baseGeometry,isBase:true,lastUpdate:0,source};group.position.copy(st.m.group.position);group.quaternion.copy(st.m.group.quaternion);group.scale.copy(st.m.group.scale);group.add(mesh);group.userData=preview;st.preview=preview;source.mesh.visible=false;source.edges.visible=false;scene.add(group);dragFacePreview=group;
+  const group=new THREE.Group(),mesh=previewMesh(createPushPullGeometry(st),st.m.mesh.material,st.m.mesh),source={mesh:st.m.mesh,edges:st.m.edges,meshVisible:st.m.mesh.visible,edgesVisible:st.m.edges.visible},preview={mesh,source};group.position.copy(st.m.group.position);group.quaternion.copy(st.m.group.quaternion);group.scale.copy(st.m.group.scale);group.add(mesh);group.userData=preview;st.preview=preview;source.mesh.visible=false;source.edges.visible=false;scene.add(group);dragFacePreview=group;
 }
 function updatePushPullPreview(st,delta){
-  if(!dragFacePreview||dragFacePreview.userData!==st.preview)return;if(Math.abs(delta)<.003){if(!st.preview.isBase){const old=st.preview.mesh.geometry,next=st.preview.baseGeometry.clone();st.preview.mesh.geometry=next;old.dispose();st.preview.isBase=true;}return;}const now=performance.now();if(now-st.preview.lastUpdate<80)return;st.preview.lastUpdate=now;const prism=patchPrismGeometry(st.m,st.patch,delta,st.shapeData),operation=delta>0?'union':'subtract';if(!prism)return;let next=null;try{next=operation==='union'?unionGeometry(st.preview.baseGeometry,prism):subtractGeometry(st.preview.baseGeometry,prism);if(!pushPullResultIsSane(st.preview.baseGeometry,prism,next,operation)){next.dispose();return;}const old=st.preview.mesh.geometry;st.preview.mesh.geometry=next;old.dispose();st.preview.isBase=false;}catch(err){console.warn('Push/Pull preview failed',err);next?.dispose();}finally{prism.dispose();}
+  if(!dragFacePreview||dragFacePreview.userData!==st.preview)return;updatePushPullGeometry(st,st.preview.mesh.geometry,delta);
 }
 function beginPushPull(e){const hit=raycastMasses(e.clientX,e.clientY),m=massFromHit(hit);if(!m)return;const info=meshFaceForHit(hit,m);if(!info)return;clearPushHover();clearDragFacePreview();selectMass(m);
   const axisLocal=info.normalLocal.clone().normalize(),axisWorld=localDirectionToWorld(m,axisLocal),anchor=hit.point.clone(),s0=worldToClient(anchor),s1=worldToClient(anchor.clone().add(axisWorld));let sd=s1.clone().sub(s0),px=sd.length();if(px<1e-4){sd.set(0,-1);px=1;}else sd.multiplyScalar(1/px);
@@ -3257,8 +3252,8 @@ function beginPushPull(e){const hit=raycastMasses(e.clientX,e.clientY),m=massFro
   const axisDragMode=(axisViewAlignment<.965&&px>=2.5)?'axis3d':'screen';
   const axisStartParam=axisDragMode==='axis3d'?pushPullRayAxisParameter(e.clientX,e.clientY,anchor,axisWorld):null;
   const axisScale=axisLocal.clone().multiply(m.group.scale).length()||1,maxPushLocal=maxPushPullInwardDelta(m,info.localPoint,axisWorld,axisScale),common={kind:'pushpull',pointerId:e.pointerId,m,info,axisLocal,axisWorld,anchor,startClient:vec2(e.clientX,e.clientY),screenDir:sd,pxPerWorld:px,axisDragMode,axisStartParam:Number.isFinite(axisStartParam)?axisStartParam:0,axisScale,maxPushLocal};
-  const shapeData=patchShapeData(m,info.patch);if(!shapeData)return;
-  interaction={...common,patch:info.patch,shapeData,startGeometryPositions:serializeGeometry(m.mesh.geometry),deltaLocal:0,before:snapshot()};
+  const faceData=pushPullFaceData(m,info.patch);if(!faceData)return;
+  interaction={...common,patch:info.patch,faceData,startGeometryPositions:serializeGeometry(m.mesh.geometry),deltaLocal:0,before:snapshot()};
   createPushPullPreview(interaction);
   showInference('FACE');
   renderer.domElement.setPointerCapture?.(e.pointerId);
@@ -4791,7 +4786,7 @@ document.addEventListener('visibilitychange',async()=>{
   standaloneResumeRefreshing=true;
   try{await saveAutosaveNow();}catch(_){ }
   const u=new URL(location.href);
-  u.searchParams.set('__ma_build',window.__MA_BUILD__||'6.16');
+  u.searchParams.set('__ma_build',window.__MA_BUILD__||'6.17');
   u.searchParams.set('__ma_resume',String(Date.now()));
   location.replace(u.href);
 });
