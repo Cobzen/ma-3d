@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="ma-build" content="6.03">
+<meta name="ma-build" content="6.04">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -10,10 +10,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#151515">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>MA — iPad · Apple Pencil · v6.03</title>
+<title>MA — iPad · Apple Pencil · v6.04</title>
 <script>
 (() => {
-  const CURRENT_BUILD = '6.03';
+  const CURRENT_BUILD = '6.04';
   const CHECK_INTERVAL = 30000;
   let lastCheck = 0;
   let checking = false;
@@ -1052,7 +1052,7 @@ html.ma-ipad #shortcutPanel{top:70px!important}
       <label class="toolbarSettingRow"><span>Scenes</span><input type="checkbox" data-toolbar-section="sceneBar" checked></label>
     </div>
 
-    <div id="sideMenuBuild">BUILD <span id="buildBadge" title="MA build v6.03">6.03</span></div>
+    <div id="sideMenuBuild">BUILD <span id="buildBadge" title="MA build v6.04">6.04</span></div>
   </div>
   <div id="selected"></div>
   <div id="panel">
@@ -2290,8 +2290,8 @@ function smoothGeometryForType(g,type){
 }
 function materialForMass(type='draw'){return new THREE.MeshLambertMaterial({color:fill,flatShading:!(type==='sphere'||type==='circle'||type==='curve'),side:THREE.FrontSide,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1});}
 function makeMass(data,addHistory=false){
-  const profile=cleanProfile((data.profile||[]).map(p=>vec2(p.x,p.y))),cuts=(data.cuts||[]).map(normalizeCut),legacyBaked=Array.isArray(data.bakedPositions)&&data.bakedPositions.length>=9,historyGeometry=Array.isArray(data.geometryPositions)&&data.geometryPositions.length>=9?data.geometryPositions:null,baked=typeof data.baked==='boolean'?data.baked:legacyBaked;
-  let g=historyGeometry?geometryFromPositions(historyGeometry):(legacyBaked?geometryFromPositions(data.bakedPositions):buildMassGeometry(profile,data.depth,cuts));if(!g)return null;
+  const profile=cleanProfile((data.profile||[]).map(p=>vec2(p.x,p.y))),cuts=(data.cuts||[]).map(normalizeCut),legacyBaked=Array.isArray(data.bakedPositions)&&data.bakedPositions.length>=9,storedGeometry=Array.isArray(data.geometryPositions)&&data.geometryPositions.length>=9?data.geometryPositions:null,baked=typeof data.baked==='boolean'?data.baked:legacyBaked;
+  let g=storedGeometry?geometryFromPositions(storedGeometry):(legacyBaked?geometryFromPositions(data.bakedPositions):buildMassGeometry(profile,data.depth,cuts));if(!g)return null;
   const massType=data.type||'draw';g=smoothGeometryForType(g,massType);
   const group=new THREE.Group(),mesh=new THREE.Mesh(g,materialForMass(massType));mesh.castShadow=true;mesh.receiveShadow=true;group.add(mesh);scene.add(group);
   group.position.fromArray(data.position||[0,0,0]);group.quaternion.fromArray(data.quaternion||[0,0,0,1]);group.scale.fromArray(data.scale||[1,1,1]);
@@ -2307,7 +2307,7 @@ function rebuildMass(m,{profile=m.profile,depth=m.depth,cuts=m.cuts}={}){
   m.profile=clean.map(p=>p.clone());m.depth=depth;m.cuts=normalizedCuts;
   return true;
 }
-function serializeMass(m){return{id:m.id,name:m.name,type:m.type,groupId:m.groupId??null,profile:m.profile.map(p=>({x:p.x,y:p.y})),depth:m.depth,cuts:m.baked?[]:(m.cuts||[]).map(serializeCut),bakedPositions:m.baked?serializeGeometry(m.mesh.geometry):null,position:m.group.position.toArray(),quaternion:m.group.quaternion.toArray(),scale:m.group.scale.toArray()};}
+function serializeMass(m){const geometryPositions=serializeGeometry(m.mesh.geometry);return{id:m.id,name:m.name,type:m.type,groupId:m.groupId??null,profile:m.profile.map(p=>({x:p.x,y:p.y})),depth:m.depth,cuts:m.baked?[]:(m.cuts||[]).map(serializeCut),baked:!!m.baked,geometryPositions:m.baked?null:geometryPositions,bakedPositions:m.baked?geometryPositions:null,position:m.group.position.toArray(),quaternion:m.group.quaternion.toArray(),scale:m.group.scale.toArray()};}
 function snapshot(){return masses.map(m=>({...serializeMass(m),baked:!!m.baked,geometryPositions:serializeGeometry(m.mesh.geometry)}));}
 function captureSceneView(){
   return{
@@ -4749,7 +4749,7 @@ document.addEventListener('visibilitychange',async()=>{
   standaloneResumeRefreshing=true;
   try{await saveAutosaveNow();}catch(_){ }
   const u=new URL(location.href);
-  u.searchParams.set('__ma_build',window.__MA_BUILD__||'6.03');
+  u.searchParams.set('__ma_build',window.__MA_BUILD__||'6.04');
   u.searchParams.set('__ma_resume',String(Date.now()));
   location.replace(u.href);
 });
